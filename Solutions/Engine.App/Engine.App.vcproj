@@ -2138,30 +2138,6 @@
 			Name="Library Sources"
 			>
 			<Filter
-				Name="AllegroPatches"
-				>
-				<File
-					RelativePath="..\..\Engine\libsrc\allegro-4.2.2-agspatch\afile.c"
-					>
-				</File>
-				<File
-					RelativePath="..\..\Engine\libsrc\allegro-4.2.2-agspatch\c\cstretch.c"
-					>
-				</File>
-				<File
-					RelativePath="..\..\Engine\libsrc\allegro-4.2.2-agspatch\win\wkeybd.c"
-					>
-				</File>
-				<File
-					RelativePath="..\..\Engine\libsrc\allegro-4.2.2-agspatch\win\wmouse.c"
-					>
-				</File>
-				<File
-					RelativePath="..\..\Engine\libsrc\allegro-4.2.2-agspatch\win\wwnd.c"
-					>
-				</File>
-			</Filter>
-			<Filter
 				Name="almp3"
 				>
 				<File
