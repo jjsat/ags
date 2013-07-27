@@ -9,8 +9,6 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.DialogInterface.OnCancelListener;
 import android.content.DialogInterface.OnClickListener;
-import android.content.pm.PackageInfo;
-import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.res.Configuration;
 import android.media.AudioManager;
@@ -18,6 +16,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
 import android.os.PowerManager;
+import android.view.InputDevice;
 import android.view.KeyEvent;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -55,6 +54,7 @@ public class AgsEngine extends Activity
 	private boolean ignoreNextActionUp_Menu = false;
 
 	private boolean draggingMouse = false;
+	private boolean rightButtonDown = false;
 
 	@Override
 	public void onCreate(Bundle savedInstanceState)
@@ -159,7 +159,39 @@ public class AgsEngine extends Activity
 			}
 		}
 	}
-	
+
+
+	@Override
+	public boolean dispatchGenericMotionEvent(MotionEvent ev)
+	{
+		int source = ev.getSource();
+		
+		if ((source == InputDevice.SOURCE_JOYSTICK) || (source == InputDevice.SOURCE_GAMEPAD))
+		{
+			float x = ev.getAxisValue(MotionEvent.AXIS_X);
+			float y = ev.getAxisValue(MotionEvent.AXIS_Y);
+
+			lastX += x;
+			lastY += y;
+			
+			glue.moveMouse(x, y, lastX, lastY);
+			return true;
+		}
+		else if (source == InputDevice.SOURCE_MOUSE)
+		{
+			float x = ev.getX() - lastX;
+			float y = ev.getY() - lastY;
+
+			lastX = ev.getX();
+			lastY = ev.getY();
+			
+			glue.moveMouse(x, y, lastX, lastY);
+			return true;
+		}
+		
+		return super.dispatchGenericMotionEvent(ev);
+	}
+
 	
 	@Override
 	public boolean dispatchTouchEvent(MotionEvent ev)
@@ -173,7 +205,15 @@ public class AgsEngine extends Activity
 				ignoreMovement = false;
 				initialized = false;
 				stopLongclick = false;
-				glue.moveMouse(0, 0, downX, downY);				
+				glue.moveMouse(0, 0, downX, downY);
+				
+				int which_device = ev.getSource(); // API 9
+				if (which_device == InputDevice.SOURCE_MOUSE)
+				{
+					int button_state = ev.getButtonState(); // API 14
+					rightButtonDown = (button_state == MotionEvent.BUTTON_SECONDARY);
+				}
+
 				break;
 			}
 			
@@ -216,7 +256,10 @@ public class AgsEngine extends Activity
 				if (down_time < 200)
 				{
 					// Quick tap for clicking the left mouse button
-					glue.clickMouse(EngineGlue.MOUSE_CLICK_LEFT);
+					if ((ev.getSource() == InputDevice.SOURCE_MOUSE) && (rightButtonDown))
+						glue.clickMouse(EngineGlue.MOUSE_CLICK_RIGHT);
+					else
+						glue.clickMouse(EngineGlue.MOUSE_CLICK_LEFT);
 					draggingMouse = false;
 				}
 		
@@ -320,6 +363,27 @@ public class AgsEngine extends Activity
 			{
 				int key = ev.getKeyCode();
 				
+				if (key == KeyEvent.KEYCODE_DPAD_LEFT)
+				{
+					lastX--;
+					glue.moveMouse(-1, 0, lastX, lastY);
+				}
+				else if (key == KeyEvent.KEYCODE_DPAD_RIGHT)
+				{
+					lastX++;
+					glue.moveMouse(1, 0, lastX, lastY);
+				}
+				else if (key == KeyEvent.KEYCODE_DPAD_UP)
+				{
+					lastY--;
+					glue.moveMouse(0, -1, lastX, lastY);
+				}
+				else if (key == KeyEvent.KEYCODE_DPAD_DOWN)
+				{
+					lastY++;
+					glue.moveMouse(0, 1, lastX, lastY);
+				}
+				
 				if ((key == KeyEvent.KEYCODE_BACK) && ((ev.getFlags() & 0x80) > 0)) // FLAG_LONG_PRESS
 				{
 					ignoreNextActionUp_Back = true;
@@ -345,7 +409,7 @@ public class AgsEngine extends Activity
 			{
 				int key = ev.getKeyCode();
 				
-				if (key == KeyEvent.KEYCODE_MENU)
+				if ((key == KeyEvent.KEYCODE_MENU) || (key == KeyEvent.KEYCODE_BUTTON_SELECT))
 				{
 					if (!ignoreNextActionUp_Menu)
 						openOptionsMenu();
@@ -373,7 +437,16 @@ public class AgsEngine extends Activity
 					return isInGame;
 				}
 
-				glue.keyboardEvent(key, ev.getUnicodeChar(), ev.isShiftPressed());
+				if (key == KeyEvent.KEYCODE_BUTTON_X)
+					glue.clickMouse(EngineGlue.MOUSE_CLICK_LEFT);
+				else if (key == KeyEvent.KEYCODE_BUTTON_Y)
+					glue.clickMouse(EngineGlue.MOUSE_CLICK_RIGHT);
+				else if ((key == KeyEvent.KEYCODE_BUTTON_START) || (key == KeyEvent.KEYCODE_ESCAPE))
+					glue.keyboardEvent(KeyEvent.KEYCODE_BACK, 0, false);
+				else if ((key >= KeyEvent.KEYCODE_F1) && (key <= KeyEvent.KEYCODE_F12))
+					glue.keyboardEvent(0x1000 + 47 + key - KeyEvent.KEYCODE_F1, 0, false);
+				else
+					glue.keyboardEvent(key, ev.getUnicodeChar(), ev.isShiftPressed());
 				break;
 			}
 		}
